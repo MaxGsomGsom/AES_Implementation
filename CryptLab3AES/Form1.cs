@@ -26,7 +26,7 @@ namespace CryptLab3AES
 
             byte[] key = Encoding.Unicode.GetBytes(textBox1key.Text);
 
-            AES algo = new AES(key, 4, 4);
+            AES algo = new AES(key, 6, 6);
 
             byte[] data = File.ReadAllBytes(f.FileName);
 
