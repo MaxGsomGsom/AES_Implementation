@@ -75,7 +75,7 @@ namespace CryptLab3AES
             {
                 GetDataBlock(data, dataPos, block);
 
-                for (int i = 1; i < rounds; i++)
+                for (int i = 0; i < rounds; i++)
                 {
                     if (i == 0)
                     {
@@ -100,7 +100,7 @@ namespace CryptLab3AES
             }
 
 
-            return data;
+            return result;
         }
 
 
@@ -235,8 +235,8 @@ namespace CryptLab3AES
                     //слово XOR rcon
                     temp[0] = (byte)(temp[0] ^ rcon[r / Nkey]);
                     temp[1] = (byte)(temp[1] ^ 0x00);
-                    temp[1] = (byte)(temp[1] ^ 0x00);
-                    temp[1] = (byte)(temp[1] ^ 0x00);
+                    temp[2] = (byte)(temp[2] ^ 0x00);
+                    temp[3] = (byte)(temp[3] ^ 0x00);
 
                 }
                 //если ключ 8 байт и генерируем 5-е слово ключа, то заменяем слово на байты из sbox

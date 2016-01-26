@@ -32,7 +32,7 @@ namespace CryptLab3AES
 
             byte[] result = algo.Encode(data);
 
-            File.WriteAllBytes(Path.GetFileNameWithoutExtension(f.FileName) + "_encoded" + Path.GetExtension(f.FileName), data);
+            File.WriteAllBytes(Path.GetFileNameWithoutExtension(f.FileName) + "_encoded" + Path.GetExtension(f.FileName), result);
         }
 
     }
