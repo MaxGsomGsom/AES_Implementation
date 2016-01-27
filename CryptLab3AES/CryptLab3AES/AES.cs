@@ -20,7 +20,6 @@ namespace CryptLab3AES
 
         public AES(byte[] key, int Nkey, int Nblock)
         {
-
             this.Nblock = Nblock;
             this.Nkey = Nkey;
 
@@ -56,42 +55,48 @@ namespace CryptLab3AES
                 C[2] = 4;
             }
 
+
+
+
             //получаем рабочий ключ
             workKey = KeySchedule(this.key);
 
             //получаем рабочий ключ расшифрования
-            antiWorkKey = AntiKeySchedule(workKey);
+            antiWorkKey = workKey;
         }
 
 
         //шифрование
         public byte[] Encode(byte[] data)
         {
+            //дополняет до кратного числа байт
+            int addLength = Nblock * 4 - data.Length % (Nblock * 4);
+            Array.Resize(ref data, data.Length + addLength);
+
 
             int dataPos = 0;
             byte[,] block = new byte[4, Nblock];
 
             byte[] result = new byte[data.Length];
 
-
-            while (dataPos < data.Length - Nblock * 4)
+            while (dataPos < data.Length)
             {
                 GetDataBlock(data, dataPos, block);
 
-                for (int i = 0; i < rounds; i++)
+                for (int i = 0; i < rounds + 1; i++)
                 {
                     if (i == 0)
                     {
                         AddRoundKey(block, i);
                     }
-                    else if (i < rounds - 1)
+                    else if (i < rounds)
                     {
                         ByteSub(block);
                         ShiftRow(block);
                         MixColumn(block);
                         AddRoundKey(block, i);
                     }
-                    else if (i == rounds - 1)
+                    else if (i == rounds)
                     {
                         ByteSub(block);
                         ShiftRow(block);
@@ -100,6 +105,7 @@ namespace CryptLab3AES
                 }
 
                 dataPos = SetDataBlock(block, dataPos, result);
+
             }
 
 
@@ -111,40 +117,44 @@ namespace CryptLab3AES
         //расшифрование
         public byte[] Decode(byte[] data)
         {
-
             int dataPos = 0;
             byte[,] block = new byte[4, Nblock];
 
             byte[] result = new byte[data.Length];
 
 
-            
-            while (dataPos < data.Length - Nblock * 4)
+            while (dataPos < data.Length)
             {
                 GetDataBlock(data, dataPos, block);
 
-                for (int i = rounds-1; i >=0; i--)
+                for (int i = rounds; i >= 0; i--)
                 {
-                    if (i == rounds - 1)
+                    if (i == rounds)
                     {
-                        AntiAddRoundKey(block, i);
-                    }
-                    else if (i < rounds - 1)
-                    {
-                        AntiByteSub(block);
-                        AntiShiftRow(block);
-                        AntiMixColumn(block);
                         AntiAddRoundKey(block, i);
                     }
                     else if (i == 0)
                     {
-                        AntiByteSub(block);
                         AntiShiftRow(block);
+                        AntiByteSub(block);
                         AntiAddRoundKey(block, i);
+                    }
+                    else if (i < rounds)
+                    {
+                        AntiShiftRow(block);
+                        AntiByteSub(block);
+                        AntiAddRoundKey(block, i);
+                        AntiMixColumn(block);
                     }
                 }
 
                 dataPos = SetDataBlock(block, dataPos, result);
+            }
+
+            //удаляем пустые байты в конце
+            while (result[result.Length - 1] == 0x00)
+            {
+                Array.Resize(ref result, result.Length - 1);
             }
 
 
@@ -245,13 +255,13 @@ namespace CryptLab3AES
             for (int row = 1; row < 4; row++)
             {
                 //копируем последние С байт в буфер
-                for (int i = Nblock - C[row - 1]; i < Nblock; i++)
+                for (int i = 0; i < C[row - 1]; i++)
                 {
-                    temp[i] = data[row, i];
+                    temp[i] = data[row, Nblock - C[row - 1] + i];
                 }
 
                 //сдвигаем байты
-                for (int i = Nblock; i > C[row - 1]; i--)
+                for (int i = Nblock - 1; i >= C[row - 1]; i--)
                 {
                     data[row, i] = data[row, i - C[row - 1]];
                 }
@@ -277,13 +287,43 @@ namespace CryptLab3AES
                 }
 
                 //умножаем столбец на матрицу - перемешиваем
-                data[0, i] = (byte)(temp[0] * 2 + temp[1] * 3 + temp[2] + temp[3]);
-                data[1, i] = (byte)(temp[0] + temp[1] * 2 + temp[2] * 3 + temp[3]);
-                data[2, i] = (byte)(temp[0] + temp[1] + temp[2] * 2 + temp[3] * 3);
-                data[3, i] = (byte)(temp[0] * 3 + temp[1] + temp[2] + temp[3] * 2);
+                data[0, i] = (byte)(GMul(temp[0], 0x02) ^ GMul(temp[1], 0x03) ^ GMul(temp[2], 0x01) ^ GMul(temp[3], 0x01));
+                data[1, i] = (byte)(GMul(temp[0], 0x01) ^ GMul(temp[1], 0x02) ^ GMul(temp[2], 0x03) ^ GMul(temp[3], 0x01));
+                data[2, i] = (byte)(GMul(temp[0], 0x01) ^ GMul(temp[1], 0x01) ^ GMul(temp[2], 0x02) ^ GMul(temp[3], 0x03));
+                data[3, i] = (byte)(GMul(temp[0], 0x03) ^ GMul(temp[1], 0x01) ^ GMul(temp[2], 0x01) ^ GMul(temp[3], 0x02));
             }
         }
 
+
+
+        /// <summary>
+        /// Операция умножения в Galois Field
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        byte GMul(byte a, byte b)
+        {
+            byte p = 0;
+            byte counter;
+            byte hi_bit_set;
+
+            for (counter = 0; counter < 8; counter++)
+            {
+                if ((b & 1) != 0)
+                {
+                    p ^= a;
+                }
+                hi_bit_set = (byte)(a & 0x80);
+                a <<= 1;
+                if (hi_bit_set != 0)
+                {
+                    a ^= 0x1b;
+                }
+                b >>= 1;
+            }
+            return p;
+        }
 
         //перемешивание столбцов
         void AntiMixColumn(byte[,] data)
@@ -297,10 +337,10 @@ namespace CryptLab3AES
                 }
 
                 //умножаем столбец на матрицу - перемешиваем
-                data[0, i] = (byte)(temp[0] * 0x0e + temp[1] * 0x0b + temp[2]*0x0d + temp[3]*0x09);
-                data[1, i] = (byte)(temp[0]*0x09 + temp[1] * 0x0e + temp[2] * 0x0b + temp[3]*0x0d);
-                data[2, i] = (byte)(temp[0]*0x0d + temp[1]*0x09 + temp[2] * 0x0e + temp[3] * 0x0b);
-                data[3, i] = (byte)(temp[0] * 0x0b + temp[1]*0x0d + temp[2]*0x09 + temp[3] * 0x0e);
+                data[0, i] = (byte)(GMul(temp[0], 0x0e) ^ GMul(temp[1], 0x0b) ^ GMul(temp[2], 0x0d) ^ GMul(temp[3], 0x09));
+                data[1, i] = (byte)(GMul(temp[0], 0x09) ^ GMul(temp[1], 0x0e) ^ GMul(temp[2], 0x0b) ^ GMul(temp[3], 0x0d));
+                data[2, i] = (byte)(GMul(temp[0], 0x0d) ^ GMul(temp[1], 0x09) ^ GMul(temp[2], 0x0e) ^ GMul(temp[3], 0x0b));
+                data[3, i] = (byte)(GMul(temp[0], 0x0b) ^ GMul(temp[1], 0x0d) ^ GMul(temp[2], 0x09) ^ GMul(temp[3], 0x0e));
             }
         }
 
@@ -333,6 +373,7 @@ namespace CryptLab3AES
                 //для каждого первого слова раундового ключа
                 if (r % Nkey == 0)
                 {
+
                     //вращаем байты слова
                     RotateWord(temp);
                     //заменяем слово на байты из sbox
@@ -354,7 +395,7 @@ namespace CryptLab3AES
                 //новое слова ключа получается как "последнее слово ключа XOR полученное в temp слово"
                 for (int i = 0; i < 4; i++)
                 {
-                    result[i, r] = (byte)(result[i, r - 1] ^ temp[i]);
+                    result[i, r] = (byte)(result[i, r - Nkey] ^ temp[i]);
                 }
             }
 
@@ -363,41 +404,6 @@ namespace CryptLab3AES
 
         }
 
-
-
-        byte[,] AntiKeySchedule(byte[,] key)
-        {
-            byte[,] result = new byte[4, Nblock * (rounds + 1)];
-
-
-            for (int i = 0; i < rounds; i++)
-            {
-                byte[,] block = new byte[4, Nblock];
-
-                for (int y = 0; y < Nblock; y++)
-                {
-                    for (int x = 0; x < 4; x++)
-                    {
-                        block[x, y] = key[x, y * i];
-                    }
-                }
-
-                AntiMixColumn(block);
-
-
-                for (int y = 0; y < Nblock; y++)
-                {
-                    for (int x = 0; x < 4; x++)
-                    {
-                        result[x, y * i] = block[x, y];
-                    }
-                }
-            }
-
-
-            return result;
-
-        }
 
 
         //замена байтов ключа на байты из sbox
@@ -488,7 +494,7 @@ namespace CryptLab3AES
 
 
         byte[] rcon = {
-            /*0x8d,*/ 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a,
+            0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a,
             0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39,
             0x72, 0xe4, 0xd3, 0xbd, 0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a,
             0x74, 0xe8, 0xcb, 0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8,
