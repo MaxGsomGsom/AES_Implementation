@@ -18,15 +18,24 @@ namespace CryptLab3AES
             InitializeComponent();
         }
 
+        int keySize = 4, blockSize = 4;
+
         private void button1_Click(object sender, EventArgs e)
         {
+            if (textBox1key.Text.Length<keySize*4)
+            {
+                MessageBox.Show("Key too short");
+                return;
+            }
+
+
             OpenFileDialog f = new OpenFileDialog();
             f.ShowDialog();
             if (f.FileName == "") return;
 
             byte[] key = Encoding.Convert(Encoding.Unicode, Encoding.Default, Encoding.Unicode.GetBytes(textBox1key.Text));
 
-            AES algo = new AES(key, 6, 4);
+            AES algo = new AES(key, keySize, blockSize);
 
             byte[] data = File.ReadAllBytes(f.FileName);
 
@@ -35,15 +44,51 @@ namespace CryptLab3AES
             File.WriteAllBytes(Path.GetFileNameWithoutExtension(f.FileName) + "_encoded" + Path.GetExtension(f.FileName), result);
         }
 
+        private void radioButton1_CheckedChanged(object sender, EventArgs e)
+        {
+            if (radioButton1.Checked) keySize = 4;
+        }
+
+        private void radioButton2_CheckedChanged(object sender, EventArgs e)
+        {
+            if (radioButton2.Checked) keySize = 6;
+        }
+
+        private void radioButton3_CheckedChanged(object sender, EventArgs e)
+        {
+            if (radioButton3.Checked) keySize = 8;
+        }
+
+        private void radioButton6_CheckedChanged(object sender, EventArgs e)
+        {
+            if (radioButton6.Checked) blockSize = 4;
+        }
+
+        private void radioButton5_CheckedChanged(object sender, EventArgs e)
+        {
+            if (radioButton5.Checked) blockSize = 6;
+        }
+
+        private void radioButton4_CheckedChanged(object sender, EventArgs e)
+        {
+            if (radioButton4.Checked) blockSize = 6;
+        }
+
         private void button1decode_Click(object sender, EventArgs e)
         {
+            if (textBox1key.Text.Length < keySize * 4)
+            {
+                MessageBox.Show("Key too short");
+                return;
+            }
+
             OpenFileDialog f = new OpenFileDialog();
             f.ShowDialog();
             if (f.FileName == "") return;
 
             byte[] key = Encoding.Convert(Encoding.Unicode, Encoding.Default, Encoding.Unicode.GetBytes(textBox1key.Text));
 
-            AES algo = new AES(key, 6, 4);
+            AES algo = new AES(key, keySize, blockSize);
 
             byte[] data = File.ReadAllBytes(f.FileName);
 
